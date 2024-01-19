@@ -1,0 +1,1 @@
+"""querytyper test suite."""
