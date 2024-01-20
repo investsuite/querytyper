@@ -1,8 +1,8 @@
 """MongoQuery ."""
+import re
 from collections.abc import Iterable
 from pprint import pformat
-import re
-from typing import Any, Generic, Tuple, Type, TypeVar, Union, cast, Dict
+from typing import Any, Dict, Generic, Tuple, Type, TypeVar, Union, cast
 
 from pydantic import BaseModel
 from pydantic.main import ModelMetaclass
@@ -26,6 +26,11 @@ class MongoQuery:
         # copy over the class _dict to the instance
         self._dict = MongoQuery._dict
         # clean up MongoQuery _dict at each instantiation
+        MongoQuery._dict = {}
+
+    def __del__(self) -> None:
+        """MongoQuery destructor."""
+        self._dict = {}
         MongoQuery._dict = {}
 
     def __repr__(self) -> str:
@@ -102,9 +107,7 @@ class QueryField(Generic[T]):
         """Overload == operator."""
         _dict = MongoQuery._dict
         field = _dict.get(self.name)
-        if isinstance(other, re.Pattern):
-            _dict[self.name] = {"$regex": other.pattern}
-        elif field is None:
+        if field is None:
             _dict[self.name] = other
         else:
             _dict[self.name] = (
@@ -154,7 +157,7 @@ def exists(
     raise TypeError(f"Field must be a QueryField or str, {type(field)} is not supported.")
 
 
-def field_regex(
+def regex_query(
     field: Union[QueryField[str], str],
     regex: re.Pattern[str],
 ) -> QueryCondition:
