@@ -1,12 +1,56 @@
 [![Open in Dev Containers](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/investsuite/querytyper)
 
-# querytyper
+# Querytyper
 
-A Python package to queryy databases using a fully typed syntax.
+Querytyper is a Python package to query MongoDB using a fully typed syntax.
+It leverages the Pydantic library for defining and validating data models, providing a seamless and type-safe experience.
+
+## Features
+- Construct MongoDB queries using Python's native syntax with type hints.
+- Leverage Pydantic models to define your MongoDB document structure and query filters efficiently.
+- Build complex queries using logical operators and comparisons in a natural and expressive way.
 
 ## Using
 
 To add and install this package as a dependency of your project, run `poetry add querytyper`.
+### A simple example:
+```python
+from pydantic import BaseModel, EmailStr
+from querytyper import MongoModelMetaclass, MongoQuery
+
+class User(BaseModel):
+    """User database model."""
+    id: int
+    name: str
+    age: int
+    email: EmailStr
+
+class UserFilter(User, metaclass=MongoModelMetaclass):
+    """User query filter."""
+
+query = MongoQuery(
+        (UserFilter.name == "John")
+        & (UserFilter.age >= 10)
+        & (
+            UserFilter.email
+            in [
+                "john@example.com",
+                "john@gmail.com",
+            ]
+        )
+    )
+print(query)
+```
+```python
+{
+    "name": "John",
+    "age": {"$gte": 10},
+    "email": [
+        "john@example.com",
+        "john@gmail.com",
+    ],
+}
+```
 
 ## Contributing
 

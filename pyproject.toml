@@ -18,7 +18,7 @@ version = "0.0.0"
 version_files = ["pyproject.toml:version"]
 
 [tool.poetry.dependencies]  # https://python-poetry.org/docs/dependency-specification/
-pydantic = "^1.8.2"
+pydantic = {extras = ["email"], version = "^1.8.2"}
 python = ">=3.8,<4.0"
 
 [tool.poetry.group.test.dependencies]  # https://python-poetry.org/docs/master/managing-dependencies/

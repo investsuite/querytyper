@@ -4,10 +4,54 @@ import re
 from typing import Dict, List, Optional
 
 import pytest
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 from querytyper import MongoModelMetaclass, MongoQuery, exists, regex_query
 from querytyper.mongo.query import QueryCondition
+
+
+class User(BaseModel):
+    """User database model."""
+
+    id: int
+    name: str
+    email: EmailStr
+
+
+def test_readme_example() -> None:
+    """Test readme example."""
+
+    class User(BaseModel):
+        """User database model."""
+
+        id: int
+        name: str
+        age: int
+        email: EmailStr
+
+    class UserFilter(User, metaclass=MongoModelMetaclass):
+        """User query filter."""
+
+    query = MongoQuery(
+        (UserFilter.name == "John")
+        & (UserFilter.age >= 10)
+        & (
+            UserFilter.email
+            in [
+                "john@example.com",
+                "john@gmail.com",
+            ]
+        )
+    )
+    assert isinstance(query, MongoQuery)
+    assert query._query_dict == {
+        "name": "John",
+        "age": {"$gte": 10},
+        "email": [
+            "john@example.com",
+            "john@gmail.com",
+        ],
+    }
 
 
 class Dummy(BaseModel):
@@ -30,38 +74,38 @@ def test_query_equals() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery(QueryModel.str_field == "a")
     assert isinstance(query, MongoQuery)
-    assert query._dict == {"str_field": "a"}
+    assert query._query_dict == {"str_field": "a"}
 
 
 def test_query_less_then() -> None:
     """Test MongoQuery less_then override."""
     query = MongoQuery(QueryModel.int_field <= 1)
     assert isinstance(query, MongoQuery)
-    assert query._dict == {"int_field": {"$lte": 1}}
+    assert query._query_dict == {"int_field": {"$lte": 1}}
     query = MongoQuery(QueryModel.int_field < 1)
     assert isinstance(query, MongoQuery)
-    assert query._dict == {"int_field": {"$lt": 1}}
+    assert query._query_dict == {"int_field": {"$lt": 1}}
 
 
 def test_query_and() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery((QueryModel.str_field == "a") & (QueryModel.int_field >= 1))
     assert isinstance(query, MongoQuery)
-    assert query._dict == {"str_field": "a", "int_field": {"$gte": 1}}
+    assert query._query_dict == {"str_field": "a", "int_field": {"$gte": 1}}
 
 
 def test_query_or() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery(QueryModel.str_field == "a") | MongoQuery(QueryModel.int_field > 1)
     assert isinstance(query, MongoQuery)
-    assert query._dict == {"$or": [{"str_field": "a"}, {"int_field": {"$gt": 1}}]}
+    assert query._query_dict == {"$or": [{"str_field": "a"}, {"int_field": {"$gt": 1}}]}
 
 
 def test_query_in() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery(QueryModel.str_field in ["a", "b"])
     assert isinstance(query, MongoQuery)
-    assert query._dict == {"str_field": ["a", "b"]}
+    assert query._query_dict == {"str_field": ["a", "b"]}
 
 
 def test_query_init_error() -> None:
@@ -100,7 +144,7 @@ def test_querycondition_and() -> None:
     conditions = True & condition
     assert isinstance(conditions, QueryCondition)
     assert isinstance(condition, QueryCondition)
-    assert condition == MongoQuery._dict
+    assert condition == MongoQuery._query_dict
 
 
 def test_metaclass_type_errors() -> None:

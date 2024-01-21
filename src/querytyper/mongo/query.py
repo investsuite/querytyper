@@ -14,7 +14,7 @@ DictStrAny = Dict[str, Any]
 class MongoQuery:
     """MongoQuery wrapper."""
 
-    _dict: DictStrAny = {}
+    _query_dict: DictStrAny = {}
 
     def __init__(self, *args: Any) -> None:
         """Initialize a query object."""
@@ -23,26 +23,26 @@ class MongoQuery:
                 raise TypeError(
                     f"MongoQuery argument must be a QueryCondition or a boolean value, {type(arg)} is not supported."
                 )
-        # copy over the class _dict to the instance
-        self._dict = MongoQuery._dict
-        # clean up MongoQuery _dict at each instantiation
-        MongoQuery._dict = {}
+        # copy over the class _query_dict to the instance
+        self._query_dict = MongoQuery._query_dict
+        # clean up MongoQuery _query_dict at each instantiation
+        MongoQuery._query_dict = {}
 
     def __del__(self) -> None:
         """MongoQuery destructor."""
-        self._dict = {}
-        MongoQuery._dict = {}
+        self._query_dict = {}
+        MongoQuery._query_dict = {}
 
     def __repr__(self) -> str:
         """Overload repr method to pretty format it."""
-        return pformat(self._dict)
+        return pformat(self._query_dict)
 
     def __or__(
         self,
         other: "MongoQuery",
     ) -> "MongoQuery":
         """Overload | operator."""
-        self._dict = {"$or": [self._dict, other._dict]}
+        self._query_dict = {"$or": [self._query_dict, other._query_dict]}
         return self
 
 
@@ -63,7 +63,7 @@ class QueryCondition(DictStrAny):
     ) -> "QueryCondition":
         """Overload & operator."""
         if isinstance(other, QueryCondition):
-            MongoQuery._dict.update(other)
+            MongoQuery._query_dict.update(other)
         return self
 
     def __rand__(
@@ -72,7 +72,7 @@ class QueryCondition(DictStrAny):
     ) -> "QueryCondition":
         """Overload & operator."""
         if isinstance(other, QueryCondition):
-            MongoQuery._dict.update(other)
+            MongoQuery._query_dict.update(other)
         return self
 
     def __bool__(self) -> bool:
@@ -105,17 +105,17 @@ class QueryField(Generic[T]):
         other: object,
     ) -> QueryCondition:
         """Overload == operator."""
-        _dict = MongoQuery._dict
-        field = _dict.get(self.name)
+        _query_dict = MongoQuery._query_dict
+        field = _query_dict.get(self.name)
         if field is None:
-            _dict[self.name] = other
+            _query_dict[self.name] = other
         else:
-            _dict[self.name] = (
+            _query_dict[self.name] = (
                 [*field, other]
                 if isinstance(field, Iterable) and not isinstance(field, str)
                 else [field, other]
             )
-        return QueryCondition(_dict)
+        return QueryCondition(_query_dict)
 
     def __gt__(
         self,
