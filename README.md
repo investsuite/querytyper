@@ -16,7 +16,7 @@ To add and install this package as a dependency of your project, run `poetry add
 ### A simple example:
 ```python
 from pydantic import BaseModel, EmailStr
-from querytyper import MongoModelMetaclass, MongoQuery
+from querytyper import MongoFilterMeta, MongoQuery
 
 class User(BaseModel):
     """User database model."""
@@ -25,7 +25,7 @@ class User(BaseModel):
     age: int
     email: EmailStr
 
-class UserFilter(User, metaclass=MongoModelMetaclass):
+class UserFilter(User, metaclass=MongoFilterMeta):
     """User query filter."""
 
 query = MongoQuery(

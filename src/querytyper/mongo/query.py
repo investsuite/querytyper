@@ -1,49 +1,57 @@
-"""MongoQuery ."""
+"""MongoQuery implementation."""
 import re
 from collections.abc import Iterable
-from pprint import pformat
-from typing import Any, Dict, Generic, Tuple, Type, TypeVar, Union, cast
-
-from pydantic import BaseModel
-from pydantic.main import ModelMetaclass
+from typing import Any, Dict, Generic, Type, TypeVar, Union, cast
 
 T = TypeVar("T")
 DictStrAny = Dict[str, Any]
 
 
-class MongoQuery:
-    """MongoQuery wrapper."""
+class MongoQuery(DictStrAny):
+    """
+    MongoQuery is the core `querytyper` class to write MongoDB queries.
+
+    It's a special dict subclass that keeps track of the query conditions
+    and returns a dictionary that is compatible with the `filter` argument of
+    the find methods of a pymongo collection.
+
+    Example
+    -------
+    ```python
+    query = MongoQuery(FilterModel.str_field == "a")
+    collection = MongoClient(...).get_database("db_name").get_collection("collection_name")
+    found_doc = collection.find_one(query)
+    ```
+    """
 
     _query_dict: DictStrAny = {}
 
-    def __init__(self, *args: Any) -> None:
-        """Initialize a query object."""
+    def __init__(self, *args: Any, **kwargs: DictStrAny) -> None:
+        """
+        Initialize a query object.
+        """
         for arg in args:
-            if not isinstance(arg, (QueryCondition, bool)):
+            if not isinstance(arg, (QueryCondition, dict, bool)):
                 raise TypeError(
-                    f"MongoQuery argument must be a QueryCondition or a boolean value, {type(arg)} is not supported."
+                    f"MongoQuery argument must be a QueryCondition, dict or a boolean value, {type(arg)} is not supported."
                 )
-        # copy over the class _query_dict to the instance
-        self._query_dict = MongoQuery._query_dict
-        # clean up MongoQuery _query_dict at each instantiation
+            if isinstance(arg, QueryCondition):
+                MongoQuery._query_dict.update(arg)
+        super().__init__(MongoQuery._query_dict)
+        # clean up the class query dict after each instantiation
         MongoQuery._query_dict = {}
 
     def __del__(self) -> None:
         """MongoQuery destructor."""
-        self._query_dict = {}
         MongoQuery._query_dict = {}
-
-    def __repr__(self) -> str:
-        """Overload repr method to pretty format it."""
-        return pformat(self._query_dict)
 
     def __or__(
         self,
         other: "MongoQuery",
     ) -> "MongoQuery":
         """Overload | operator."""
-        self._query_dict = {"$or": [self._query_dict, other._query_dict]}
-        return self
+        MongoQuery._query_dict = {"$or": [self, other]}
+        return MongoQuery()
 
 
 class QueryCondition(DictStrAny):
@@ -52,10 +60,6 @@ class QueryCondition(DictStrAny):
     def __init__(self, *args: Any, **kwargs: DictStrAny) -> None:
         """Overload init typing."""
         super().__init__(*args, **kwargs)
-
-    def __repr__(self) -> str:
-        """Overload repr method to pretty format it."""
-        return pformat({**self})
 
     def __and__(
         self,
@@ -164,47 +168,3 @@ def regex_query(
     if isinstance(field, QueryField):
         return QueryCondition({field.name: {"$regex": regex.pattern}})
     return QueryCondition({field: {"$regex": regex.pattern}})
-
-
-class MongoModelMetaclass(ModelMetaclass):
-    """
-    Metaclass for query models.
-
-    Use this metaclass to define query models.
-
-    Example
-    -------
-    ```python
-    class TransactionFilter(Transaction, metaclass=MongoModelMetaclass):
-        pass
-    ```
-    """
-
-    def __new__(
-        cls,
-        name: str,
-        bases: Tuple[Type[Any]],
-        namespace: DictStrAny,
-    ) -> Type["MongoModelMetaclass"]:
-        """Override new class creation to set query fields as class attributes."""
-        # check exactly one base class
-        if len(bases) > 1:
-            raise TypeError("MongoModelMetaclass does not support multiple inheritance")
-        if len(bases) < 1:
-            raise TypeError(
-                "The class with metaclass MongoModelMetaclass requires a base class that inherits from BaseModel"
-            )
-        # check the base class is a subclass of BaseModel
-        if not issubclass(bases[0], BaseModel):
-            raise TypeError(f"The base class must inherit from {BaseModel.__qualname__}")
-        base_model_cls: Type[BaseModel] = super().__new__(cls, name, bases, namespace)
-        for field_name, model_field in base_model_cls.__fields__.items():
-            setattr(
-                cls,
-                field_name,
-                QueryField[model_field.type_](  # type: ignore[name-defined]
-                    name=field_name,
-                    field_type=model_field.type_,
-                ),
-            )
-        return cls

@@ -1,13 +1,14 @@
 """Test mongo query implementation."""
 
 import re
-from typing import Dict, List, Optional
 
 import pytest
 from pydantic import BaseModel, EmailStr
 
-from querytyper import MongoModelMetaclass, MongoQuery, exists, regex_query
+from querytyper import MongoFilterMeta, MongoQuery, exists, regex_query
 from querytyper.mongo.query import QueryCondition
+
+from .conftest import Dummy, QueryModel
 
 
 class User(BaseModel):
@@ -29,7 +30,7 @@ def test_readme_example() -> None:
         age: int
         email: EmailStr
 
-    class UserFilter(User, metaclass=MongoModelMetaclass):
+    class UserFilter(User, metaclass=MongoFilterMeta):
         """User query filter."""
 
     query = MongoQuery(
@@ -44,7 +45,7 @@ def test_readme_example() -> None:
         )
     )
     assert isinstance(query, MongoQuery)
-    assert query._query_dict == {
+    assert query == {
         "name": "John",
         "age": {"$gte": 10},
         "email": [
@@ -54,65 +55,49 @@ def test_readme_example() -> None:
     }
 
 
-class Dummy(BaseModel):
-    """Dummy base model."""
-
-    str_field: str
-    int_field: int
-    float_field: float
-    bool_field: bool
-    list_field: List[str] = ["a", "b"]
-    dict_field: Dict[str, int] = {"a": 1, "b": 2}
-    optional_str: Optional[str] = None
-
-
-class QueryModel(Dummy, metaclass=MongoModelMetaclass):
-    """Test model."""
-
-
 def test_query_equals() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery(QueryModel.str_field == "a")
     assert isinstance(query, MongoQuery)
-    assert query._query_dict == {"str_field": "a"}
+    assert query == {"str_field": "a"}
 
 
 def test_query_less_then() -> None:
     """Test MongoQuery less_then override."""
     query = MongoQuery(QueryModel.int_field <= 1)
     assert isinstance(query, MongoQuery)
-    assert query._query_dict == {"int_field": {"$lte": 1}}
+    assert query == {"int_field": {"$lte": 1}}
     query = MongoQuery(QueryModel.int_field < 1)
     assert isinstance(query, MongoQuery)
-    assert query._query_dict == {"int_field": {"$lt": 1}}
+    assert query == {"int_field": {"$lt": 1}}
 
 
 def test_query_and() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery((QueryModel.str_field == "a") & (QueryModel.int_field >= 1))
     assert isinstance(query, MongoQuery)
-    assert query._query_dict == {"str_field": "a", "int_field": {"$gte": 1}}
+    assert query == {"str_field": "a", "int_field": {"$gte": 1}}
 
 
 def test_query_or() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery(QueryModel.str_field == "a") | MongoQuery(QueryModel.int_field > 1)
     assert isinstance(query, MongoQuery)
-    assert query._query_dict == {"$or": [{"str_field": "a"}, {"int_field": {"$gt": 1}}]}
+    assert query == {"$or": [{"str_field": "a"}, {"int_field": {"$gt": 1}}]}
 
 
 def test_query_in() -> None:
     """Test MongoQuery equals override."""
     query = MongoQuery(QueryModel.str_field in ["a", "b"])
     assert isinstance(query, MongoQuery)
-    assert query._query_dict == {"str_field": ["a", "b"]}
+    assert query == {"str_field": ["a", "b"]}
 
 
 def test_query_init_error() -> None:
     """Test MongoQuery equals override."""
     with pytest.raises(
         TypeError,
-        match="MongoQuery argument must be a QueryCondition or a boolean value, <class 'str'> is not supported.",
+        match="MongoQuery argument must be a QueryCondition, dict or a boolean value, <class 'str'> is not supported.",
     ):
         MongoQuery("random string")
 
@@ -144,17 +129,16 @@ def test_querycondition_and() -> None:
     conditions = True & condition
     assert isinstance(conditions, QueryCondition)
     assert isinstance(condition, QueryCondition)
-    assert condition == MongoQuery._query_dict
 
 
 def test_metaclass_type_errors() -> None:
-    """Test MongoModelMetaclass."""
+    """Test MongoFilterMeta."""
     with pytest.raises(
         TypeError,
-        match="The class with metaclass MongoModelMetaclass requires a base class that inherits from BaseModel",
+        match="The class with metaclass MongoFilterMeta requires a base class that inherits from BaseModel",
     ):
 
-        class Test(metaclass=MongoModelMetaclass):
+        class Test(metaclass=MongoFilterMeta):
             """Test class."""
 
     class AnotherDummy(BaseModel):
@@ -162,16 +146,14 @@ def test_metaclass_type_errors() -> None:
 
         another_field: str
 
-    with pytest.raises(
-        TypeError, match="MongoModelMetaclass does not support multiple inheritance"
-    ):
+    with pytest.raises(TypeError, match="MongoFilterMeta does not support multiple inheritance"):
 
-        class MultipleInheritanceTest(Dummy, AnotherDummy, metaclass=MongoModelMetaclass):
+        class MultipleInheritanceTest(Dummy, AnotherDummy, metaclass=MongoFilterMeta):
             """Test class."""
 
     with pytest.raises(TypeError, match="The base class must inherit from BaseModel"):
 
-        class TestNoBaseModel(str, metaclass=MongoModelMetaclass):
+        class TestNoBaseModel(str, metaclass=MongoFilterMeta):
             """Test class."""
 
 

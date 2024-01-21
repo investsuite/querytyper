@@ -1,9 +1,10 @@
 """querytyper package."""
-from querytyper.mongo.query import MongoModelMetaclass, MongoQuery, exists, regex_query
+from querytyper.mongo.meta import MongoFilterMeta
+from querytyper.mongo.query import MongoQuery, exists, regex_query
 
 __all__ = [
     "MongoQuery",
-    "MongoModelMetaclass",
+    "MongoFilterMeta",
     "regex_query",
     "exists",
 ]
