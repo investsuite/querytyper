@@ -159,7 +159,7 @@ def exists(
 
 def regex_query(
     field: Union[QueryField[str], str],
-    regex: re.Pattern[str],
+    regex: re.Pattern,
 ) -> QueryCondition:
     if isinstance(field, QueryField):
         return QueryCondition({field.name: {"$regex": regex.pattern}})
