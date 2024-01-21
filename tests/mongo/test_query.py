@@ -179,3 +179,13 @@ def test_exists_query() -> None:
         TypeError, match="Field must be a QueryField or str, <class 'int'> is not supported."
     ):
         exists(1)
+
+
+def test_query_condition_init() -> None:
+    """Test QueryCondition initializer and TypeErrors."""
+    with pytest.raises(TypeError, match="QueryCondition must receive only one dict as input."):
+        QueryCondition(1)
+        QueryCondition(1, 2, 3)
+    condition = QueryCondition({"field": "value"})
+    assert "field" in condition
+    assert condition["field"] == "value"

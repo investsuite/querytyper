@@ -55,11 +55,29 @@ class MongoQuery(DictStrAny):
 
 
 class QueryCondition(DictStrAny):
-    """MongoQuery condition."""
+    """Class to represent a single query condition."""
 
     def __init__(self, *args: Any, **kwargs: DictStrAny) -> None:
-        """Overload init typing."""
-        super().__init__(*args, **kwargs)
+        """
+        Initialize a QueryCondition instance.
+
+        It should receive a dict as only argument.
+
+        Example
+        -------
+        ```python
+        QueryCondition({"field": "value"})
+        ```
+
+        It also overloads dict __init__ typing.
+        """
+        arg = args[0]
+        if len(args) != 1 or not isinstance(arg, dict):
+            raise TypeError("QueryCondition must receive only one dict as input.")
+        if isinstance(arg, dict):
+            super().__init__(**arg)
+            for k, v in arg.items():
+                self.__setitem__(k, v)
 
     def __and__(
         self,
@@ -149,6 +167,13 @@ class QueryField(Generic[T]):
         """Overload <= operator."""
         return self == {"$lte": other}
 
+    def __contains__(
+        self,
+        other: T,
+    ) -> QueryCondition:
+        """Overload in operator."""
+        return regex_query(self.name, re.compile(other))
+
 
 def exists(
     field: Any,
@@ -165,6 +190,8 @@ def regex_query(
     field: Union[QueryField[str], str],
     regex: re.Pattern,
 ) -> QueryCondition:
-    if isinstance(field, QueryField):
-        return QueryCondition({field.name: {"$regex": regex.pattern}})
-    return QueryCondition({field: {"$regex": regex.pattern}})
+    return (
+        QueryCondition({field.name: {"$regex": regex.pattern}})
+        if isinstance(field, QueryField)
+        else QueryCondition({field: {"$regex": regex.pattern}})
+    )

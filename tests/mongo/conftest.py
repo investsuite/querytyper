@@ -1,5 +1,6 @@
 """Tests fixtures and configurations."""
 from typing import Dict, List, Optional
+
 from pydantic import BaseModel
 
 from querytyper import MongoFilterMeta
