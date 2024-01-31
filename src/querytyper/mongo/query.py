@@ -1,13 +1,38 @@
 """MongoQuery implementation."""
 import re
 from collections.abc import Iterable
+from collections import UserDict
 from typing import Any, Dict, Generic, Type, TypeVar, Union, cast
 
 T = TypeVar("T")
 DictStrAny = Dict[str, Any]
 
+class _BaseQuery(UserDict):
 
-class MongoQuery(DictStrAny):
+    def __init__(self, *args: Any) -> None:
+        """
+        Initialize a query object.
+        """
+        if not len(args) == 1:
+            raise TypeError(
+                f"The initializer takes 1 positional argument but {len(args)} were given."
+            )
+        arg = args[0]
+        if not isinstance(arg, (dict, bool)):
+            raise TypeError(
+                    f"The initializer argument must be a dictionary like object, {type(arg)} is not supported."
+                )
+        if isinstance(arg, dict):
+            super().__init__(arg)
+        else:
+            arg
+    
+    @property # type: ignore[misc]
+    def __class__(self) -> Type[dict]: # type: ignore[override]
+        """Return true if isinstance(self, dict)."""
+        return dict
+
+class MongoQuery(_BaseQuery):
     """
     MongoQuery is the core `querytyper` class to write MongoDB queries.
 
@@ -24,60 +49,16 @@ class MongoQuery(DictStrAny):
     ```
     """
 
-    _query_dict: DictStrAny = {}
-
-    def __init__(self, *args: Any, **kwargs: DictStrAny) -> None:
-        """
-        Initialize a query object.
-        """
-        for arg in args:
-            if not isinstance(arg, (QueryCondition, dict, bool)):
-                raise TypeError(
-                    f"MongoQuery argument must be a QueryCondition, dict or a boolean value, {type(arg)} is not supported."
-                )
-            if isinstance(arg, QueryCondition):
-                MongoQuery._query_dict.update(arg)
-        super().__init__(MongoQuery._query_dict)
-        # clean up the class query dict after each instantiation
-        MongoQuery._query_dict = {}
-
-    def __del__(self) -> None:
-        """MongoQuery destructor."""
-        MongoQuery._query_dict = {}
-
     def __or__(
         self,
         other: "MongoQuery",
     ) -> "MongoQuery":
         """Overload | operator."""
-        MongoQuery._query_dict = {"$or": [self, other]}
-        return MongoQuery()
+        return MongoQuery({"$or": [self, other]})
 
 
-class QueryCondition(DictStrAny):
+class QueryCondition(_BaseQuery):
     """Class to represent a single query condition."""
-
-    def __init__(self, *args: Any, **kwargs: DictStrAny) -> None:
-        """
-        Initialize a QueryCondition instance.
-
-        It should receive a dict as only argument.
-
-        Example
-        -------
-        ```python
-        QueryCondition({"field": "value"})
-        ```
-
-        It also overloads dict __init__ typing.
-        """
-        arg = args[0]
-        if len(args) != 1 or not isinstance(arg, dict):
-            raise TypeError("QueryCondition must receive only one dict as input.")
-        if isinstance(arg, dict):
-            super().__init__(**arg)
-            for k, v in arg.items():
-                self.__setitem__(k, v)
 
     def __and__(
         self,
@@ -85,7 +66,7 @@ class QueryCondition(DictStrAny):
     ) -> "QueryCondition":
         """Overload & operator."""
         if isinstance(other, QueryCondition):
-            MongoQuery._query_dict.update(other)
+            self.update(other)
         return self
 
     def __rand__(
@@ -94,7 +75,7 @@ class QueryCondition(DictStrAny):
     ) -> "QueryCondition":
         """Overload & operator."""
         if isinstance(other, QueryCondition):
-            MongoQuery._query_dict.update(other)
+            self.update(other)
         return self
 
     def __bool__(self) -> bool:
@@ -113,6 +94,7 @@ class QueryField(Generic[T]):
         """Initialize QueryField instance."""
         self.name = name
         self.field_type = field_type
+        self._query_dict: DictStrAny = {}
 
     def __get__(
         self,
@@ -127,17 +109,16 @@ class QueryField(Generic[T]):
         other: object,
     ) -> QueryCondition:
         """Overload == operator."""
-        _query_dict = MongoQuery._query_dict
-        field = _query_dict.get(self.name)
+        field = self._query_dict.get(self.name)
         if field is None:
-            _query_dict[self.name] = other
+            self._query_dict[self.name] = other
         else:
-            _query_dict[self.name] = (
+            self._query_dict[self.name] = (
                 [*field, other]
                 if isinstance(field, Iterable) and not isinstance(field, str)
                 else [field, other]
             )
-        return QueryCondition(_query_dict)
+        return QueryCondition(self._query_dict)
 
     def __gt__(
         self,
@@ -172,7 +153,14 @@ class QueryField(Generic[T]):
         other: T,
     ) -> QueryCondition:
         """Overload in operator."""
-        return regex_query(self.name, re.compile(other))
+        if not issubclass(cast(type, self.field_type), str):
+            raise TypeError(
+                f"Cannot check if field {self.name} contains {other} because {self.name} is not a subclass of str but {self.field_type}"
+            )
+        if not isinstance(other, str):
+            raise ValueError("Comparison value must be a valid string.")
+        return self == {"$regex": other}
+        # return False
 
 
 def exists(

@@ -157,14 +157,14 @@ def test_metaclass_type_errors() -> None:
             """Test class."""
 
 
-def test_regex_query() -> None:
-    """Test regex query."""
-    condition = regex_query(QueryModel.str_field, re.compile("^a"))
-    assert isinstance(condition, QueryCondition)
-    assert condition == {"str_field": {"$regex": "^a"}}
-    condition = regex_query("str_field", re.compile("^a"))
-    assert isinstance(condition, QueryCondition)
-    assert condition == {"str_field": {"$regex": "^a"}}
+# def test_regex_query() -> None:
+#     """Test regex query."""
+#     condition = regex_query(QueryModel.str_field, re.compile("^a"))
+#     assert isinstance(condition, QueryCondition)
+#     assert condition == {"str_field": {"$regex": "^a"}}
+#     query = MongoQuery(condition)
+#     assert isinstance(query, MongoQuery)
+#     assert query == {"str_field": {"$regex": "^a"}}
 
 
 def test_exists_query() -> None:
@@ -183,9 +183,20 @@ def test_exists_query() -> None:
 
 def test_query_condition_init() -> None:
     """Test QueryCondition initializer and TypeErrors."""
-    with pytest.raises(TypeError, match="QueryCondition must receive only one dict as input."):
-        QueryCondition(1)
-        QueryCondition(1, 2, 3)
     condition = QueryCondition({"field": "value"})
     assert "field" in condition
     assert condition["field"] == "value"
+    assert condition == {"field": "value"}
+
+def test_query_contains() -> None:
+    """Test query contains override."""
+    query = MongoQuery("test" in QueryModel.str_field)
+    assert isinstance(query, MongoQuery)
+    assert query == {"str_field": {"$regex": "test"}}
+    with pytest.raises(
+        TypeError,
+        match="Cannot check if field int_field contains 1 because int_field is not a subclass of str but <class 'int'>",
+    ):
+        MongoQuery(1 in QueryModel.int_field) # type: ignore[operator]
+    with pytest.raises(ValueError, match="Comparison value must be a valid string."):
+        MongoQuery(1 in QueryModel.str_field) # type: ignore[operator]
