@@ -30,6 +30,6 @@ def test_integration_with_pymongo() -> None:
     assert found_dummy.int_field == 1
     query = MongoQuery("test" in QueryModel.str_field)
     assert isinstance(query, dict)
-    # assert query
+    assert query
     found_docs = list(collection.find(query))
     assert len(found_docs) == doc_num

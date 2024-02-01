@@ -172,7 +172,13 @@ class QueryField(Generic[T]):
         other: T,
     ) -> QueryCondition:
         """Overload in operator."""
-        return regex_query(self.name, re.compile(other))
+        if not issubclass(cast(type, self.field_type), str):
+            raise TypeError(
+                f"Cannot check if field {self.name} contains {other} because {self.name} is not a subclass of str but {self.field_type}"
+            )
+        if not isinstance(other, str):
+            raise ValueError("Comparison value must be a valid string.")
+        return self == {"$regex": other}
 
 
 def exists(
