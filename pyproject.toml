@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]  # https://python-poetry.org/docs/pyproject/
 name = "querytyper"
-version = "0.0.0"
+version = "0.1.0"
 description = "A Python package to queryy databases using a fully typed syntax."
 authors = ["Alessio Castrica <alessio.castrica@investsuite.com>"]
 readme = "README.md"
